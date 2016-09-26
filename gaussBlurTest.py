@@ -32,11 +32,6 @@ kernel= np.array([[0.01, 0.02, 0.04, 0.02, 0.01],
                   [0.01, 0.02, 0.04, 0.02, 0.01]])
 '''Gaussian kernel used for blurring.'''
 
-xLim=0
-'''XLimit used for loops.'''
-yLim=0
-'''YLimit used for loops.'''
-
 class PixJob:
     '''
     Container for individual attributes for each job.
@@ -82,26 +77,27 @@ def blurPixel(pj):
     while yStart<0:
         yStart+=1
         kYStart+=1
-    while xFinish>=xLim:
+    while xFinish>=gXLim:
         xFinish-=1
-    while yFinish>=yLim:
+    while yFinish>=gYLim:
         yFinish-=1
-        
+    	
     #perform blur
     #assume outbuff is all zeros
     tot=0
     kx=kXStart
+    newPix=np.full(gChannels,0,dtype=kernel.dtype)
     for x in range(xStart,xFinish+1):
         ky=kYStart
         for y in range(yStart,yFinish+1):
             contrib=gInImage[x,y]*kernel[kx,ky]
-            gOutImage[pj.x,pj.y]+=contrib
+            newPix+=contrib
             tot+=kernel[kx,ky]
             ky+=1
         kx+=1
 
     #normalize (just in case the kernel was clipped by edge)
-    gOutImage[pj.x,pj.y]/=tot
+    gOutImage[pj.x,pj.y]=(newPix/tot).astype(dtype=np.uint8)
     
 def serialBlur(workSet,inImage,outImage):
     '''Blur one pixel at at time, in order.
@@ -194,9 +190,15 @@ def initGlobals(inImage,outImage):
     '''
     global gInImage
     global gOutImage
+    global gXLim
+    global gYLim
+    global gChannels
     gInImage=inImage
     gOutImage=outImage
-
+    gXLim=gInImage.shape[0]
+    gYLim=gInImage.shape[1]
+    gChannels=gInImage.shape[2]
+	
 ####################################################
 
 if __name__=="__main__":
@@ -234,7 +236,8 @@ if __name__=="__main__":
             plt.title("Total time: "+totTime+" s")
             plt.imshow(sharedToNp(inCTypes,inShape))
             plt.subplot(1,2,2)
-            plt.imshow(sharedToNp(outCTypes,outShape))
+            outIm=sharedToNp(outCTypes,outShape)
+            plt.imshow(outIm)
             plt.show()
         else:
             print("Total conversion time: "+totTime+" seconds")
