@@ -144,6 +144,7 @@ def npToShared(npa):
     shape=npa.shape
     npa.shape=size
     npa_ctypes=sharedctypes.RawArray('B',npa)
+    #npa_ctypes=sharedctypes.Array('B',npa,lock=False)
     npa=np.frombuffer(npa_ctypes,dtype=np.uint8,count=size)
     npa.shape=shape
     
@@ -221,8 +222,10 @@ if __name__=="__main__":
         if mode=="multiproc":
             print("Processing as multiprocess...")
             timeStart=timer()
+            outImage[0,0,0]=1
             multiProcBlur(workSet,inImage,outImage)
             timeEnd=timer()
+            print outImage[0,0,0]
         else: # mode=="serial":
             print("Processing as serial...")
             timeStart=timer()
