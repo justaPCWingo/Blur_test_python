@@ -9,7 +9,9 @@ Usage:
    Where:
        mode    : The method of blurring. Options are:
                :    serial      Sequentially blur pixels in single process.
-               :    multiproc   Blur pixel in a series of processes that can execute in parallel.
+               :    multiproc   Blur pixel in a series of processes 
+               :                that can execute in parallel.
+               :    help        Display this message and exit.
                :
        image   : The path to an image file.
                :
@@ -21,7 +23,8 @@ import numpy as np
 from scipy import misc as msp
 from timeit import default_timer as timer
 import matplotlib.pyplot as plt
-from multiprocessing import sharedctypes,Pool,cpu_count
+from multiprocessing import sharedctypes,Pool,cpu_count,Array
+#import logging
 
 
 #5x5 blur kernel - must have odd, square dimensions for proper sampling
@@ -55,6 +58,9 @@ def blurPixel(pj):
     Args:
         pj: The values to use to process a single pixel.
     '''
+    
+    #logger = log_to_stderr()
+    #logger.debug("Processing pixel: "+str(pj.x)+","+str(pj.y))
     
     #assume sampling region is fully in image
     xStep=(kernel.shape[0]-1)/2
@@ -97,7 +103,11 @@ def blurPixel(pj):
         kx+=1
 
     #normalize (just in case the kernel was clipped by edge)
-    gOutImage[pj.x,pj.y]=(newPix/tot).astype(dtype=np.uint8)
+    ind=pj.x*gYLim*gChannels+pj.y*gChannels
+    pxl=(newPix/tot).astype(dtype=np.uint8)
+    for i in range(pxl.__len__()):
+        gOutImage[ind+i]=pxl[i]
+    #gOutImage[pj.x,pj.y]=(newPix/tot).astype(dtype=np.uint8)
     
 def serialBlur(workSet,inImage,outImage):
     '''Blur one pixel at at time, in order.
@@ -204,14 +214,15 @@ def initGlobals(inImage,outImage):
 
 if __name__=="__main__":
     argv=sys.argv
-    if argv.__len__()>2:
+    if argv.__len__()>2 and argv[1]!="help":
         mode=argv[1]
         inFile=argv[2]
         inFace=msp.imread(inFile)
         theType=inFace.dtype
         inCTypes,inShape,inImage=npToShared(inFace)
         inFace=None #for safety
-        outCTypes,outShape,outImage=npToShared(np.full(inShape,0,dtype=theType))
+        #outCTypes,outShape,outImage=npToShared(np.full(inShape,0,dtype=theType))
+        outImage=Array('B',[0]*inShape[0]*inShape[1]*inShape[2])
         xLim=inShape[0]
         yLim=inShape[1]
         print("Image '"+inFile+"' loaded.")
@@ -222,10 +233,10 @@ if __name__=="__main__":
         if mode=="multiproc":
             print("Processing as multiprocess...")
             timeStart=timer()
-            outImage[0,0,0]=1
+            #outImage[0,0,0]=1
             multiProcBlur(workSet,inImage,outImage)
             timeEnd=timer()
-            print outImage[0,0,0]
+            
         else: # mode=="serial":
             print("Processing as serial...")
             timeStart=timer()
@@ -239,7 +250,11 @@ if __name__=="__main__":
             plt.title("Total time: "+totTime+" s")
             plt.imshow(sharedToNp(inCTypes,inShape))
             plt.subplot(1,2,2)
-            outIm=sharedToNp(outCTypes,outShape)
+            #outIm=sharedToNp(outCTypes,outShape)
+            outIm=np.full([outImage.__len__()],0,theType)
+            for i in range(outIm.__len__()):
+                outIm[i]=outImage[i]
+            outIm.shape=inShape
             plt.imshow(outIm)
             plt.show()
         else:
